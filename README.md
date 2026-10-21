@@ -1,77 +1,67 @@
-# Client Legacy Data Ingestion & Vector ETL Pipeline
+# Datheon Forward Deployed Engineering Internship
 
-An extensible Python ETL pipeline for extracting legacy business documents (PDF, CSV, Markdown), normalizing records, semantically chunking text, preserving metadata, embedding in batches, and indexing in ChromaDB or Qdrant.
+A portfolio repository containing two engineering projects built around secure document ingestion and enterprise retrieval-augmented generation (RAG).
 
-## Features
-- PDF / CSV / Markdown ingestion
-- Metadata preservation: tenant, department, access tier, source, modified date, page number
-- Semantic chunking with a configurable sentence-aware splitter and overlap
-- Batched embeddings and upserts
-- Cosine similarity index configuration
-- Metadata filters for retrieval
-- Dry-run mode and JSONL manifest output
-- Basic benchmarking for throughput and chunk counts
-- Optional Qdrant backend; ChromaDB default
+## Projects
 
-## Setup
+### Task 1 — Client Legacy Data Ingestion & Vector ETL Pipeline
+Location: [`task1-vector-etl/`](task1-vector-etl/)
 
-Python 3.11+:
+- Extracts PDF, CSV, Markdown, and text documents.
+- Chunks content with overlap while preserving source metadata.
+- Preserves tenant, department, access tier, modified date, and source page/row.
+- Generates sentence-transformer embeddings in batches.
+- Indexes vectors in ChromaDB or Qdrant using cosine similarity.
+- Supports dry runs, JSONL manifests, and basic throughput reporting.
 
-```bash
-python -m venv .venv
-# Windows: .venv\Scripts\activate
-source .venv/bin/activate
-pip install -r requirements.txt
-cp .env.example .env
+Start with the task-specific [README](task1-vector-etl/README.md).
+
+### Task 2 — Enterprise Multi-Tenant RAG with RBAC
+Location: [`task2-enterprise-rag/`](task2-enterprise-rag/)
+
+- FastAPI endpoints for PDF ingestion and question answering.
+- JWT-based development authentication and role/clearance checks.
+- Tenant and clearance filters in vector retrieval, with application-level validation.
+- Query rewriting and cross-encoder reranking.
+- Evidence-grounded answers with PDF page citations and abstention when evidence is insufficient.
+- Security tests, Dockerfile, and configuration template.
+
+Start with the task-specific [README](task2-enterprise-rag/README.md).
+
+## Repository layout
+
+```text
+Datheon_Forward_Deployed_Engineering_Internship/
+├── README.md
+├── task1-vector-etl/
+│   ├── etl/
+│   ├── tests/
+│   ├── requirements.txt
+│   └── README.md
+└── task2-enterprise-rag/
+    ├── app/
+    ├── scripts/
+    ├── tests/
+    ├── requirements.txt
+    └── README.md
 ```
 
-## Ingest a directory
+## Quick start
 
-Place source files under `./data/input` and run:
+Each project has its own dependencies and instructions. Open its folder and follow its README. Keep each `.env` file local; never commit API keys, access tokens, private documents, or secrets.
 
-```bash
-python -m etl.cli ingest ./data/input --backend chroma --output-manifest ./data/manifest.jsonl
-```
+## Security and limitations
 
-Preview without indexing:
+This repository is a portfolio implementation, not a certified production system. Before using real client data, replace development authentication with your organization's identity provider, centralize authorization policy, restrict who can assign document access metadata, secure vector storage, add ingestion scanning and audit logs, and run security and load tests. OCR is not included for scanned PDFs.
 
-```bash
-python -m etl.cli ingest ./data/input --dry-run
-```
+## Suggested validation
 
-Qdrant local mode:
+- Run the unit tests in each project environment.
+- Test cross-tenant and clearance-denied retrieval.
+- Confirm page citations match the original PDF pages.
+- Benchmark ETL throughput on a representative document set.
+- Verify that missing or invalid access metadata fails closed.
 
-```bash
-python -m etl.cli ingest ./data/input --backend qdrant
-```
+## Author
 
-Optional Qdrant server mode: set `QDRANT_URL` and `QDRANT_API_KEY` in `.env`.
-
-## Input metadata
-
-A sidecar JSON file named `<filename>.meta.json` can override defaults:
-
-```json
-{
-  "tenant_id": "client-acme",
-  "department": "finance",
-  "access_tier": "confidential",
-  "modified_date": "2026-10-20",
-  "source": "legacy-share"
-}
-```
-
-Missing security metadata fails closed by default; configure a safe default only if your governance policy explicitly allows it. Do not infer access tier from document contents.
-
-CSV rows are converted to text with column names preserved. Each row receives its own chunk by default, and large rows are split if necessary.
-
-## Security and production notes
-- ETL preserves metadata; it does not itself grant access. Validate tenant, department, and access tier against an authoritative policy source.
-- Use least-privilege credentials and encrypted storage; keep secrets out of source control.
-- Scan uploads, limit file size and page count, and isolate parsers in a worker/container.
-- Use stable document IDs, content hashes, idempotent upserts, dead-letter handling, retries, and audit logs for a production deployment.
-- Test tenant/department/access-tier filters at the database boundary.
-- For scanned PDFs, add OCR (e.g., Tesseract or a managed OCR service) and preserve page provenance.
-- Benchmark with representative documents and hardware; performance numbers depend on environment and model downloads.
-
-This is a starter implementation. Threat-model, load-test, and validate access controls before production.
+Add your name, LinkedIn, and contact details here before publishing.
