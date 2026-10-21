@@ -1,9 +1,1 @@
-services:
-  rag-api:
-    build: .
-    env_file: .env
-    ports:
-      - "8000:8000"
-    volumes:
-      - ./data:/app/data
-    restart: unless-stopped
+"""Enterprise RAG application package."""

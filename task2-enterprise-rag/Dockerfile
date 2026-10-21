@@ -1,12 +1,12 @@
-APP_ENV=development
-JWT_SECRET=replace-with-a-long-random-secret-before-use
-JWT_ISSUER=enterprise-rag-local
-JWT_AUDIENCE=enterprise-rag-api
-OPENAI_API_KEY=
-OPENAI_MODEL=gpt-4o-mini
-CHROMA_PATH=./data/chroma
-EMBEDDING_MODEL=sentence-transformers/all-MiniLM-L6-v2
-RERANKER_MODEL=cross-encoder/ms-marco-MiniLM-L-6-v2
-TOP_K=20
-FINAL_K=5
-MAX_UPLOAD_MB=20
+FROM python:3.11-slim
+ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
+WORKDIR /app
+RUN apt-get update && apt-get install -y --no-install-recommends build-essential && rm -rf /var/lib/apt/lists/*
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+COPY app ./app
+COPY scripts ./scripts
+RUN useradd --create-home --uid 10001 appuser && mkdir -p /app/data && chown -R appuser:appuser /app
+USER appuser
+EXPOSE 8000
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

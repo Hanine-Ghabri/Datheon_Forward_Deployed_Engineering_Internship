@@ -1,40 +1,35 @@
 from __future__ import annotations
 
-import re
+import hashlib
+from datetime import datetime, timezone
+from pathlib import Path
+
+from etl.config import settings
+
+ALLOWED_TIERS = {"public", "internal", "confidential", "secret", "top_secret"}
 
 
-def semantic_chunks(text: str, max_chars: int = 1800, overlap: int = 250) -> list[str]:
-    """Sentence-aware chunking: prefer sentence boundaries, with bounded overlap."""
-    if max_chars < 100:
-        raise ValueError("max_chars must be >= 100")
-    if overlap < 0 or overlap >= max_chars:
-        raise ValueError("overlap must be >= 0 and less than max_chars")
-    normalized = re.sub(r"\s+", " ", text).strip()
-    if not normalized:
-        return []
-    sentences = re.split(r"(?<=[.!?])\s+", normalized)
-    chunks, current = [], ""
-    for sentence in sentences:
-        if len(sentence) > max_chars:
-            if current:
-                chunks.append(current)
-                current = ""
-            start = 0
-            while start < len(sentence):
-                end = min(len(sentence), start + max_chars)
-                chunks.append(sentence[start:end])
-                if end == len(sentence):
-                    break
-                start = end - overlap
-            continue
-        candidate = f"{current} {sentence}".strip()
-        if len(candidate) <= max_chars:
-            current = candidate
-        else:
-            if current:
-                chunks.append(current)
-            prefix = current[-overlap:] if overlap and current else ""
-            current = f"{prefix} {sentence}".strip()
-    if current:
-        chunks.append(current)
-    return list(dict.fromkeys(c for c in chunks if c))
+def build_metadata(path: Path, extra: dict, source_root: Path, provenance: dict) -> dict:
+    tenant = extra.get("tenant_id") or settings.default_tenant_id
+    tier = extra.get("access_tier") or settings.default_access_tier
+    if not tenant:
+        raise ValueError(f"Missing tenant_id in metadata for {path}")
+    if tier not in ALLOWED_TIERS:
+        raise ValueError(f"Missing/invalid access_tier in metadata for {path}")
+    try:
+        relative = path.resolve().relative_to(source_root.resolve()).as_posix()
+    except ValueError:
+        relative = path.name
+    raw_hash = hashlib.sha256(path.read_bytes()).hexdigest()
+    modified = extra.get("modified_date") or datetime.fromtimestamp(
+        path.stat().st_mtime, tz=timezone.utc).date().isoformat()
+    return {
+        "tenant_id": str(tenant),
+        "department": str(extra.get("department") or settings.default_department),
+        "access_tier": str(tier),
+        "modified_date": str(modified),
+        "source": str(extra.get("source") or relative),
+        "document_id": str(extra.get("document_id") or raw_hash[:24]),
+        "content_sha256": raw_hash,
+        **provenance,
+    }

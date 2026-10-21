@@ -1,48 +1,40 @@
 from __future__ import annotations
 
-import csv
-import json
-from pathlib import Path
-from typing import Iterator
-
-from pypdf import PdfReader
-
-SUPPORTED = {".pdf", ".csv", ".md", ".markdown", ".txt"}
+import re
 
 
-def load_sidecar(path: Path) -> dict:
-    sidecar = path.with_name(path.name + ".meta.json")
-    if not sidecar.exists():
-        return {}
-    data = json.loads(sidecar.read_text(encoding="utf-8"))
-    if not isinstance(data, dict):
-        raise ValueError(f"Metadata sidecar must be an object: {sidecar}")
-    return data
-
-
-def extract_file(path: Path) -> Iterator[tuple[str, dict]]:
-    suffix = path.suffix.lower()
-    if suffix == ".pdf":
-        reader = PdfReader(str(path), strict=True)
-        if reader.is_encrypted:
-            raise ValueError("Encrypted PDFs are not supported")
-        for page_no, page in enumerate(reader.pages, start=1):
-            text = (page.extract_text() or "").strip()
-            if text:
-                yield text, {"page_number": page_no}
-    elif suffix == ".csv":
-        with path.open("r", encoding="utf-8-sig", newline="") as f:
-            reader = csv.DictReader(f)
-            if not reader.fieldnames:
-                return
-            for row_no, row in enumerate(reader, start=2):
-                cleaned = {str(k): (v or "").strip() for k, v in row.items() if k}
-                text = "\n".join(f"{k}: {v}" for k, v in cleaned.items() if v)
-                if text:
-                    yield text, {"row_number": row_no}
-    elif suffix in {".md", ".markdown", ".txt"}:
-        text = path.read_text(encoding="utf-8", errors="replace").strip()
-        if text:
-            yield text, {}
-    else:
-        return
+def semantic_chunks(text: str, max_chars: int = 1800, overlap: int = 250) -> list[str]:
+    """Sentence-aware chunking: prefer sentence boundaries, with bounded overlap."""
+    if max_chars < 100:
+        raise ValueError("max_chars must be >= 100")
+    if overlap < 0 or overlap >= max_chars:
+        raise ValueError("overlap must be >= 0 and less than max_chars")
+    normalized = re.sub(r"\s+", " ", text).strip()
+    if not normalized:
+        return []
+    sentences = re.split(r"(?<=[.!?])\s+", normalized)
+    chunks, current = [], ""
+    for sentence in sentences:
+        if len(sentence) > max_chars:
+            if current:
+                chunks.append(current)
+                current = ""
+            start = 0
+            while start < len(sentence):
+                end = min(len(sentence), start + max_chars)
+                chunks.append(sentence[start:end])
+                if end == len(sentence):
+                    break
+                start = end - overlap
+            continue
+        candidate = f"{current} {sentence}".strip()
+        if len(candidate) <= max_chars:
+            current = candidate
+        else:
+            if current:
+                chunks.append(current)
+            prefix = current[-overlap:] if overlap and current else ""
+            current = f"{prefix} {sentence}".strip()
+    if current:
+        chunks.append(current)
+    return list(dict.fromkeys(c for c in chunks if c))

@@ -22,10 +22,25 @@ The ETL pipeline is designed for client-legacy document collections. It accepts 
 
 ## Installation
 
+Run these commands from `task1-vector-etl/`.
+
 ```bash
 python -m venv .venv
+```
+
+Activate the environment and install dependencies:
+
+```powershell
+# Windows PowerShell
+.\.venv\Scripts\Activate.ps1
+python -m pip install -r requirements.txt
+Copy-Item .env.example .env
+```
+
+```bash
+# macOS / Linux
 source .venv/bin/activate
-pip install -r requirements.txt
+python -m pip install -r requirements.txt
 cp .env.example .env
 ```
 
@@ -67,8 +82,10 @@ CLI options:
 ## Running tests
 
 ```bash
-pytest tests -q
+python -m pytest tests -q
 ```
+
+Run the test command from `task1-vector-etl/`.
 
 ## Supported input types
 

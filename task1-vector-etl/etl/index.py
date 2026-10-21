@@ -1,35 +1,62 @@
 from __future__ import annotations
 
-import hashlib
-from datetime import datetime, timezone
-from pathlib import Path
+from functools import lru_cache
+from uuid import NAMESPACE_URL, uuid5
+
+import chromadb
+from qdrant_client import QdrantClient, models
+from sentence_transformers import SentenceTransformer
 
 from etl.config import settings
 
-ALLOWED_TIERS = {"public", "internal", "confidential", "secret", "top_secret"}
+
+@lru_cache(maxsize=1)
+def embedder():
+    return SentenceTransformer(settings.embedding_model)
 
 
-def build_metadata(path: Path, extra: dict, source_root: Path, provenance: dict) -> dict:
-    tenant = extra.get("tenant_id") or settings.default_tenant_id
-    tier = extra.get("access_tier") or settings.default_access_tier
-    if not tenant:
-        raise ValueError(f"Missing tenant_id in metadata for {path}")
-    if tier not in ALLOWED_TIERS:
-        raise ValueError(f"Missing/invalid access_tier in metadata for {path}")
-    try:
-        relative = path.resolve().relative_to(source_root.resolve()).as_posix()
-    except ValueError:
-        relative = path.name
-    raw_hash = hashlib.sha256(path.read_bytes()).hexdigest()
-    modified = extra.get("modified_date") or datetime.fromtimestamp(
-        path.stat().st_mtime, tz=timezone.utc).date().isoformat()
-    return {
-        "tenant_id": str(tenant),
-        "department": str(extra.get("department") or settings.default_department),
-        "access_tier": str(tier),
-        "modified_date": str(modified),
-        "source": str(extra.get("source") or relative),
-        "document_id": str(extra.get("document_id") or raw_hash[:24]),
-        "content_sha256": raw_hash,
-        **provenance,
-    }
+def stable_id(meta: dict, chunk: str) -> str:
+    return str(uuid5(NAMESPACE_URL, f"{meta['tenant_id']}|{meta['document_id']}|{meta.get('page_number','')}|{meta.get('row_number','')}|{chunk}"))
+
+
+def _embed(texts: list[str]) -> list[list[float]]:
+    return embedder().encode(texts, batch_size=settings.batch_size, normalize_embeddings=True).tolist()
+
+
+def index_chroma(records: list[dict]) -> int:
+    client = chromadb.PersistentClient(path=settings.chroma_path)
+    collection = client.get_or_create_collection(
+        name=settings.chroma_collection, metadata={"hnsw:space": "cosine"})
+    count = 0
+    for start in range(0, len(records), settings.batch_size):
+        batch = records[start:start + settings.batch_size]
+        collection.upsert(
+            ids=[r["id"] for r in batch],
+            documents=[r["text"] for r in batch],
+            metadatas=[r["metadata"] for r in batch],
+            embeddings=_embed([r["text"] for r in batch]))
+        count += len(batch)
+    return count
+
+
+def index_qdrant(records: list[dict]) -> int:
+    if settings.qdrant_url:
+        client = QdrantClient(url=settings.qdrant_url, api_key=settings.qdrant_api_key or None)
+    else:
+        client = QdrantClient(path="./data/qdrant")
+    vectors = _embed([r["text"] for r in records]) if records else []
+    if not records:
+        return 0
+    dim = len(vectors[0])
+    if not client.collection_exists(settings.qdrant_collection):
+        client.create_collection(
+            collection_name=settings.qdrant_collection,
+            vectors_config=models.VectorParams(size=dim, distance=models.Distance.COSINE))
+    count = 0
+    for start in range(0, len(records), settings.batch_size):
+        batch, vec_batch = records[start:start + settings.batch_size], vectors[start:start + settings.batch_size]
+        points = [models.PointStruct(id=r["id"], vector=v, payload={"text": r["text"], **r["metadata"]})
+                  for r, v in zip(batch, vec_batch)]
+        client.upsert(collection_name=settings.qdrant_collection, points=points, wait=True)
+        count += len(points)
+    return count
