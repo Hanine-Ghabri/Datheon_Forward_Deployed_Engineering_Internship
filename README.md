@@ -1,66 +1,114 @@
 # Datheon Forward Deployed Engineering Internship
 
-A portfolio repository containing two engineering projects built around secure document ingestion and enterprise retrieval-augmented generation (RAG).
+A portfolio repository containing two engineering projects built around secure document ingestion, vector indexing, and enterprise retrieval-augmented generation (RAG).
 
-## Projects
+## Project overview
 
-### Task 1 — Client Legacy Data Ingestion & Vector ETL Pipeline
-Location: [`task1-vector-etl/`](task1-vector-etl/)
+This repository contains two related internship tasks:
 
-- Extracts PDF, CSV, Markdown, and text documents.
-- Chunks content with overlap while preserving source metadata.
-- Preserves tenant, department, access tier, modified date, and source page/row.
-- Generates sentence-transformer embeddings in batches.
-- Indexes vectors in ChromaDB or Qdrant using cosine similarity.
-- Supports dry runs, JSONL manifests, and basic throughput reporting.
-
-Start with the task-specific [README](task1-vector-etl/README.md).
-
-### Task 2 — Enterprise Multi-Tenant RAG with RBAC
-Location: [`task2-enterprise-rag/`](task2-enterprise-rag/)
-
-- FastAPI endpoints for PDF ingestion and question answering.
-- JWT-based development authentication and role/clearance checks.
-- Tenant and clearance filters in vector retrieval, with application-level validation.
-- Query rewriting and cross-encoder reranking.
-- Evidence-grounded answers with PDF page citations and abstention when evidence is insufficient.
-- Security tests, Dockerfile, and configuration template.
-
-Start with the task-specific [README](task2-enterprise-rag/README.md).
+- Task 1: Client legacy document ingestion and vector ETL pipeline
+- Task 2: Multi-tenant enterprise RAG application with role-based access control and evidence-grounded answer generation
 
 ## Repository layout
 
 ```text
 Datheon_Forward_Deployed_Engineering_Internship/
 ├── README.md
+├── .gitignore
 ├── task1-vector-etl/
-│   ├── etl/
-│   ├── tests/
+│   ├── README.md
 │   ├── requirements.txt
-│   └── README.md
-└── task2-enterprise-rag/
-    ├── app/
-    ├── scripts/
-    ├── tests/
-    ├── requirements.txt
-    └── README.md
+│   ├── .env.example
+│   ├── Dockerfile
+│   ├── etl/
+│   │   ├── __init__.py
+│   │   ├── config.py
+│   │   ├── extract.py
+│   │   ├── chunking.py
+│   │   ├── metadata.py
+│   │   ├── index.py
+│   │   └── cli.py
+│   └── tests/
+├── task2-enterprise-rag/
+│   ├── README.md
+│   ├── requirements.txt
+│   ├── .env.example
+│   ├── Dockerfile
+│   ├── docker-compose.yml
+│   ├── app/
+│   │   ├── main.py
+│   │   ├── config.py
+│   │   ├── security.py
+│   │   ├── retrieval.py
+│   │   ├── answer.py
+│   │   └── citations.py
+│   ├── scripts/
+│   └── tests/
 ```
 
-## Quick start
+## Task 1 — Client Legacy Data Ingestion & Vector ETL Pipeline
 
-Each project has its own dependencies and instructions. Open its folder and follow its README. Keep each `.env` file local; never commit API keys, access tokens, private documents, or secrets.
+Location: `task1-vector-etl/`
 
-## Security and limitations
+- Extracts PDF, CSV, Markdown, and text documents
+- Preserves metadata such as tenant, department, access tier, modified date, and source provenance
+- Uses sentence-aware chunking with configurable overlap
+- Generates embeddings in batches and indexes them in ChromaDB or Qdrant
+- Supports dry-run mode and manifest export
+- Provides content and metadata for downstream retrieval pipelines
 
-This repository is a portfolio implementation, not a certified production system. Before using real client data, replace development authentication with your organization's identity provider, centralize authorization policy, restrict who can assign document access metadata, secure vector storage, add ingestion scanning and audit logs, and run security and load tests. OCR is not included for scanned PDFs.
+See `task1-vector-etl/README.md` for implementation details, setup, and usage.
 
-## Suggested validation
+## Task 2 — Enterprise Multi-Tenant RAG with RBAC
 
-- Run the unit tests in each project environment.
-- Test cross-tenant and clearance-denied retrieval.
-- Confirm page citations match the original PDF pages.
-- Benchmark ETL throughput on a representative document set.
-- Verify that missing or invalid access metadata fails closed.
+Location: `task2-enterprise-rag/`
+
+- FastAPI API for secure PDF ingestion
+- JWT-based demo authentication and principal validation
+- Tenant-scoped retrieval and role/clearance-aware filtering
+- Evidence-grounded answer generation with citations
+- Graceful abstention when evidence is insufficient or unauthorized
+
+See `task2-enterprise-rag/README.md` for implementation details, setup, and usage.
+
+## Installation and validation
+
+Each project has its own dependency list and environment file.
+
+### Task 1
+```bash
+cd task1-vector-etl
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+cp .env.example .env
+pytest tests -q
+```
+
+### Task 2
+```bash
+cd task2-enterprise-rag
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+cp .env.example .env
+pytest tests -q
+```
+
+## Security considerations
+
+This repository is a portfolio implementation, not a production-certified system.
+
+- Replace demo JWT authentication with a real identity provider before production use
+- Validate authorization metadata against a trusted policy source
+- Fail closed when tenant or access metadata is missing or malformed
+- Keep secrets and API keys out of version control
+- Add scanning, logging, and audit controls before deploying real data
+
+## Portfolio links
+
+- GitHub: [Add your GitHub profile URL here]
+- LinkedIn: [Add your LinkedIn profile URL here]
 
 ## Author
 
