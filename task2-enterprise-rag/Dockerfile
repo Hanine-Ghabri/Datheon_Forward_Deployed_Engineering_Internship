@@ -1,0 +1,12 @@
+APP_ENV=development
+JWT_SECRET=replace-with-a-long-random-secret-before-use
+JWT_ISSUER=enterprise-rag-local
+JWT_AUDIENCE=enterprise-rag-api
+OPENAI_API_KEY=
+OPENAI_MODEL=gpt-4o-mini
+CHROMA_PATH=./data/chroma
+EMBEDDING_MODEL=sentence-transformers/all-MiniLM-L6-v2
+RERANKER_MODEL=cross-encoder/ms-marco-MiniLM-L-6-v2
+TOP_K=20
+FINAL_K=5
+MAX_UPLOAD_MB=20

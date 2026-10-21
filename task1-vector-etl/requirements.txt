@@ -1,0 +1,94 @@
+# Task 1 — Vector ETL Pipeline
+
+This project ingests documents from a source directory, extracts text, chunks it, enriches metadata, and indexes the resulting embeddings for downstream retrieval.
+
+## Purpose
+
+The pipeline is designed for client-legacy document collections that may include PDF, CSV, Markdown, and plain-text files. It preserves source provenance and access metadata so the resulting vectors can be filtered by tenant and sensitivity level in later retrieval systems.
+
+## Architecture
+
+- `etl/extract.py`: reads supported file types and yields text blocks with provenance metadata.
+- `etl/chunking.py`: creates sentence-aware chunks with bounded overlap.
+- `etl/metadata.py`: validates tenant and access metadata and adds document provenance.
+- `etl/index.py`: embeds batches and writes them to ChromaDB or Qdrant.
+- `etl/pipeline.py`: orchestrates extraction, chunking, metadata augmentation, and indexing.
+- `etl/cli.py`: command-line entry point for local ingestion.
+
+## Prerequisites
+
+- Python 3.11+
+- A virtual environment is recommended.
+
+## Installation
+
+```bash
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+cp .env.example .env
+```
+
+## Environment variables
+
+The project reads `.env` values through `pydantic-settings`.
+
+```dotenv
+EMBEDDING_MODEL=sentence-transformers/all-MiniLM-L6-v2
+BATCH_SIZE=64
+CHUNK_SIZE_CHARS=1800
+CHUNK_OVERLAP_CHARS=250
+CHROMA_PATH=./data/chroma
+CHROMA_COLLECTION=client_legacy_documents
+QDRANT_URL=
+QDRANT_API_KEY=
+QDRANT_COLLECTION=client_legacy_documents
+DEFAULT_TENANT_ID=
+DEFAULT_DEPARTMENT=unknown
+DEFAULT_ACCESS_TIER=
+```
+
+`DEFAULT_TENANT_ID` and `DEFAULT_ACCESS_TIER` are required when metadata is missing for a file. If they are not provided, the pipeline raises a validation error rather than indexing untrusted or ambiguous content.
+
+## Running the pipeline
+
+```bash
+python -m etl.cli ingest ./sample-documents --backend chroma --dry-run
+python -m etl.cli ingest ./sample-documents --backend chroma
+python -m etl.cli ingest ./sample-documents --backend qdrant
+```
+
+The CLI accepts:
+
+- `input_dir`: root folder containing source documents
+- `--backend {chroma,qdrant}`
+- `--dry-run`: extract and chunk without indexing
+- `--output-manifest`: optional JSONL chunk manifest path
+
+## Running tests
+
+```bash
+pytest tests -q
+```
+
+## Supported input types
+
+- PDF
+- CSV
+- Markdown (`.md`, `.markdown`)
+- Plain text (`.txt`)
+
+## Limitations and security considerations
+
+- Large PDFs and CSVs are processed in memory while extracting all pages or rows; there is no streaming ingestion worker.
+- The pipeline does not perform document scanning or malware detection before indexing.
+- Tensor model downloads may require network access the first time they are used.
+- The application expects access metadata to be supplied or configured ahead of time; it intentionally fails closed rather than guessing classification.
+
+## Example output
+
+```bash
+python -m etl.cli ingest ./documents --backend chroma
+```
+
+returns a JSON summary including the number of files seen, chunks created, chunks indexed, and any extraction errors.
